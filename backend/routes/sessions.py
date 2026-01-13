@@ -1,21 +1,166 @@
-from flask import Blueprint
+from flask import Blueprint, request, jsonify
+from datetime import datetime, date, timezone
+from backend.extensions import db
+from backend.models.work_session import WorkSession
+from backend.middleware.auth_middleware import login_required
 
 bp = Blueprint('sessions', __name__, url_prefix='/api/sessions')
 
 
 @bp.route('', methods=['GET'])
+@login_required
 def get_sessions():
-    """Get work sessions - to be implemented in Phase 4."""
-    return {'sessions': [], 'total_hours': 0, 'active_session': None}, 200
+    """Get work sessions for a specific date."""
+    date_str = request.args.get('date')
+    if not date_str:
+        return jsonify({'error': 'date parameter is required (YYYY-MM-DD)'}), 400
+
+    try:
+        target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+    except ValueError:
+        return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD'}), 400
+
+    sessions = WorkSession.query.filter_by(date=target_date).order_by(WorkSession.start_time).all()
+
+    # Calculate total hours
+    total_hours = sum(s.get_duration_hours() for s in sessions)
+
+    # Find active session
+    active_session = next((s for s in sessions if s.end_time is None), None)
+
+    return jsonify({
+        'sessions': [s.to_dict() for s in sessions],
+        'total_hours': round(total_hours, 2),
+        'active_session': active_session.to_dict() if active_session else None
+    }), 200
 
 
 @bp.route('/clock-in', methods=['POST'])
+@login_required
 def clock_in():
-    """Clock in - to be implemented in Phase 4."""
-    return {'message': 'Not yet implemented'}, 501
+    """Clock in - start a new work session."""
+    data = request.get_json() or {}
+
+    # Check if already clocked in
+    active_session = WorkSession.query.filter_by(end_time=None).first()
+    if active_session:
+        return jsonify({'error': 'Already clocked in. Clock out first.'}), 400
+
+    # Use provided time or current time
+    if data.get('time'):
+        start_time = datetime.fromisoformat(data['time'].replace('Z', '+00:00'))
+    else:
+        start_time = datetime.now(timezone.utc)
+
+    session_date = start_time.date()
+
+    session = WorkSession(
+        date=session_date,
+        start_time=start_time,
+        end_time=None
+    )
+
+    db.session.add(session)
+    db.session.commit()
+
+    return jsonify({'session': session.to_dict()}), 201
 
 
 @bp.route('/clock-out', methods=['POST'])
+@login_required
 def clock_out():
-    """Clock out - to be implemented in Phase 4."""
-    return {'message': 'Not yet implemented'}, 501
+    """Clock out - end the active work session."""
+    data = request.get_json() or {}
+
+    # Find active session
+    active_session = WorkSession.query.filter_by(end_time=None).first()
+    if not active_session:
+        return jsonify({'error': 'Not clocked in. Clock in first.'}), 400
+
+    # Use provided time or current time
+    if data.get('time'):
+        end_time = datetime.fromisoformat(data['time'].replace('Z', '+00:00'))
+    else:
+        end_time = datetime.now(timezone.utc)
+
+    # Validate end time is after start time
+    if end_time <= active_session.start_time:
+        return jsonify({'error': 'End time must be after start time'}), 400
+
+    active_session.end_time = end_time
+    db.session.commit()
+
+    return jsonify({'session': active_session.to_dict()}), 200
+
+
+@bp.route('', methods=['POST'])
+@login_required
+def create_session():
+    """Create a manual work session."""
+    data = request.get_json()
+
+    required_fields = ['date', 'start_time', 'end_time']
+    for field in required_fields:
+        if field not in data:
+            return jsonify({'error': f'{field} is required'}), 400
+
+    try:
+        session_date = datetime.strptime(data['date'], '%Y-%m-%d').date()
+        start_time = datetime.fromisoformat(data['start_time'].replace('Z', '+00:00'))
+        end_time = datetime.fromisoformat(data['end_time'].replace('Z', '+00:00'))
+    except ValueError as e:
+        return jsonify({'error': f'Invalid date/time format: {str(e)}'}), 400
+
+    # Validate end time is after start time
+    if end_time <= start_time:
+        return jsonify({'error': 'End time must be after start time'}), 400
+
+    session = WorkSession(
+        date=session_date,
+        start_time=start_time,
+        end_time=end_time
+    )
+
+    db.session.add(session)
+    db.session.commit()
+
+    return jsonify({'session': session.to_dict()}), 201
+
+
+@bp.route('/<session_id>', methods=['PUT'])
+@login_required
+def update_session(session_id):
+    """Update a work session."""
+    session = WorkSession.query.get_or_404(session_id)
+    data = request.get_json()
+
+    if 'start_time' in data:
+        try:
+            session.start_time = datetime.fromisoformat(data['start_time'].replace('Z', '+00:00'))
+        except ValueError:
+            return jsonify({'error': 'Invalid start_time format'}), 400
+
+    if 'end_time' in data:
+        try:
+            session.end_time = datetime.fromisoformat(data['end_time'].replace('Z', '+00:00'))
+        except ValueError:
+            return jsonify({'error': 'Invalid end_time format'}), 400
+
+    # Validate end time is after start time
+    if session.end_time and session.end_time <= session.start_time:
+        return jsonify({'error': 'End time must be after start time'}), 400
+
+    db.session.commit()
+    return jsonify({'session': session.to_dict()}), 200
+
+
+@bp.route('/<session_id>', methods=['DELETE'])
+@login_required
+def delete_session(session_id):
+    """Delete a work session."""
+    session = WorkSession.query.get_or_404(session_id)
+
+    db.session.delete(session)
+    db.session.commit()
+
+    return '', 204
