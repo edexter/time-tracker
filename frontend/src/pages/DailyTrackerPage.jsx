@@ -1,5 +1,7 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { DayPicker } from 'react-day-picker'
+import 'react-day-picker/style.css'
 import { useSessions, useClockIn, useClockOut } from '../hooks/useSessions'
 import { useAllocations } from '../hooks/useAllocations'
 import SessionsTable from '../components/tracker/SessionsTable'
@@ -13,6 +15,8 @@ import { getToday } from '../utils/formatters'
 export default function DailyTrackerPage() {
   const navigate = useNavigate()
   const [currentDate, setCurrentDate] = useState(getToday())
+  const [showCalendar, setShowCalendar] = useState(false)
+  const calendarRef = useRef(null)
 
   const {
     data: sessionsData,
@@ -33,6 +37,20 @@ export default function DailyTrackerPage() {
     refetchSessions()
     refetchAllocations()
   }
+
+  // Close calendar when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (calendarRef.current && !calendarRef.current.contains(event.target)) {
+        setShowCalendar(false)
+      }
+    }
+
+    if (showCalendar) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showCalendar])
 
   const handleClockIn = async () => {
     try {
@@ -82,6 +100,21 @@ export default function DailyTrackerPage() {
 
   const handleToday = () => {
     setCurrentDate(getToday())
+  }
+
+  const handleDateSelect = (date) => {
+    if (date) {
+      // Format date in local timezone to avoid timezone conversion issues
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      setCurrentDate(`${year}-${month}-${day}`)
+      setShowCalendar(false)
+    }
+  }
+
+  const toggleCalendar = () => {
+    setShowCalendar(!showCalendar)
   }
 
   const isToday = currentDate === getToday()
@@ -134,43 +167,67 @@ export default function DailyTrackerPage() {
           </div>
 
           <div className="flex items-center gap-3">
-            <button
-              onClick={handlePreviousDay}
-              className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-              title="Previous day"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
+            <div className="relative" ref={calendarRef}>
+              <button
+                onClick={toggleCalendar}
+                className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                title="Select date"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </button>
 
-            <div className="text-center min-w-[200px]">
-              <p className="text-base font-semibold text-gray-900">
-                {new Date(currentDate).toLocaleDateString('en-US', {
-                  weekday: 'long',
-                  month: 'short',
-                  day: 'numeric'
-                })}
-              </p>
-              {!isToday && (
-                <button
-                  onClick={handleToday}
-                  className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-                >
-                  Jump to Today
-                </button>
+              {showCalendar && (
+                <div className="absolute top-full left-0 mt-2 z-50 bg-white border border-gray-200 rounded-lg shadow-lg">
+                  <DayPicker
+                    mode="single"
+                    onSelect={handleDateSelect}
+                    defaultMonth={new Date(currentDate)}
+                  />
+                </div>
               )}
             </div>
 
-            <button
-              onClick={handleNextDay}
-              className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-              title="Next day"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
+            <div className="flex items-center">
+              <button
+                onClick={handlePreviousDay}
+                className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                title="Previous day"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+
+              <div className="text-center min-w-[150px] relative">
+                <p className="text-lg font-semibold text-gray-900">
+                  {new Date(currentDate).toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    month: 'short',
+                    day: 'numeric'
+                  })}
+                </p>
+                {!isToday && (
+                  <button
+                    onClick={handleToday}
+                    className="absolute left-1/2 -translate-x-1/2 top-full text-sm text-blue-600 hover:text-blue-800 font-medium whitespace-nowrap"
+                  >
+                    Jump to Today
+                  </button>
+                )}
+              </div>
+
+              <button
+                onClick={handleNextDay}
+                className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                title="Next day"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
       </div>

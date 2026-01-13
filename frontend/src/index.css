@@ -17,3 +17,69 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
+
+/* DayPicker custom styles to match app design */
+.rdp {
+  --rdp-accent-color: #667eea;
+  --rdp-background-color: #f3f4f6;
+  margin: 0;
+  padding: 1rem 2rem;
+}
+
+.rdp-month {
+  margin: 0;
+}
+
+.rdp-month_caption {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 0.75rem;
+  padding: 0 1rem;
+}
+
+.rdp-nav {
+  gap: 0.25rem;
+}
+
+.rdp-button:hover:not([disabled]) {
+  background-color: #f3f4f6;
+  border-radius: 0.5rem;
+}
+
+.rdp-day_button {
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.rdp-day_button:hover:not([disabled]) {
+  background-color: #e0e7ff;
+  color: #667eea;
+}
+
+.rdp-day_button:focus-visible {
+  outline: 2px solid #667eea;
+  outline-offset: 2px;
+}
+
+.rdp-weekday {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+}
+
+.rdp-day_selected {
+  background-color: #667eea;
+  color: white;
+  font-weight: 600;
+}
+
+.rdp-day_selected:hover {
+  background-color: #5568d3;
+}
+
+.rdp-day_today {
+  font-weight: 600;
+  color: #667eea;
+}
