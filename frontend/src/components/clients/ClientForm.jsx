@@ -6,6 +6,7 @@ import Button from '../shared/Button'
 export default function ClientForm({ client = null, onSubmit, onCancel, isLoading }) {
   const [formData, setFormData] = useState({
     name: client?.name || '',
+    short_name: client?.short_name || '',
     currency: client?.currency || 'EUR',
     default_hourly_rate: client?.default_hourly_rate || '',
     hour_budget: client?.hour_budget || '',
@@ -54,6 +55,13 @@ export default function ClientForm({ client = null, onSubmit, onCancel, isLoadin
         onChange={(e) => handleChange('name', e.target.value)}
         error={errors.name}
         required
+      />
+
+      <Input
+        label="Short Name (optional)"
+        value={formData.short_name}
+        onChange={(e) => handleChange('short_name', e.target.value)}
+        maxLength={50}
       />
 
       <Select

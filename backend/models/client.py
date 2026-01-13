@@ -8,6 +8,7 @@ class Client(db.Model):
 
     id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     name = db.Column(db.String(255), nullable=False)
+    short_name = db.Column(db.String(50), nullable=True)
     currency = db.Column(db.String(3), nullable=False)
     default_hourly_rate = db.Column(db.Numeric(10, 2), nullable=False)
     hour_budget = db.Column(db.Numeric(10, 2), nullable=True)
@@ -30,6 +31,7 @@ class Client(db.Model):
         data = {
             'id': self.id,
             'name': self.name,
+            'short_name': self.short_name,
             'currency': self.currency,
             'default_hourly_rate': float(self.default_hourly_rate),
             'hour_budget': float(self.hour_budget) if self.hour_budget else None,
@@ -47,9 +49,10 @@ class Client(db.Model):
     def get_hours_logged(self):
         """Calculate total hours logged for this client across all projects."""
         from backend.models.time_allocation import TimeAllocation
+        from backend.models.project import Project
         total = db.session.query(db.func.sum(TimeAllocation.hours)).join(
-            db.text('projects')
+            Project
         ).filter(
-            db.text('projects.client_id = :client_id')
-        ).params(client_id=self.id).scalar()
+            Project.client_id == self.id
+        ).scalar()
         return float(total) if total else 0.0

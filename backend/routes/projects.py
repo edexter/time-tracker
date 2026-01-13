@@ -42,6 +42,7 @@ def create_project():
     project = Project(
         client_id=data['client_id'],
         name=data['name'],
+        short_name=data.get('short_name'),
         hourly_rate_override=Decimal(str(data['hourly_rate_override'])) if data.get('hourly_rate_override') else None,
         hour_budget=Decimal(str(data['hour_budget'])) if data.get('hour_budget') else None
     )
@@ -70,6 +71,8 @@ def update_project(project_id):
     # Update allowed fields
     if 'name' in data:
         project.name = data['name']
+    if 'short_name' in data:
+        project.short_name = data['short_name']
     if 'hourly_rate_override' in data:
         project.hourly_rate_override = Decimal(str(data['hourly_rate_override'])) if data['hourly_rate_override'] else None
     if 'hour_budget' in data:

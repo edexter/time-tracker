@@ -42,6 +42,7 @@ def create_client():
 
     client = Client(
         name=data['name'],
+        short_name=data.get('short_name'),
         currency=data['currency'],
         default_hourly_rate=Decimal(str(data['default_hourly_rate'])),
         hour_budget=Decimal(str(data['hour_budget'])) if data.get('hour_budget') else None
@@ -71,6 +72,8 @@ def update_client(client_id):
     # Update allowed fields
     if 'name' in data:
         client.name = data['name']
+    if 'short_name' in data:
+        client.short_name = data['short_name']
     if 'currency' in data:
         if data['currency'] not in ['CHF', 'EUR']:
             return jsonify({'error': 'Currency must be CHF or EUR'}), 400

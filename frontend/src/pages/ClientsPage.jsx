@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   useClients,
   useCreateClient,
@@ -15,6 +16,7 @@ import Button from '../components/shared/Button'
 import LoadingSpinner from '../components/shared/LoadingSpinner'
 
 export default function ClientsPage() {
+  const navigate = useNavigate()
   const [showArchived, setShowArchived] = useState(false)
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingClient, setEditingClient] = useState(null)
@@ -93,30 +95,36 @@ export default function ClientsPage() {
   const clients = data?.clients || []
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Clients</h1>
-        <Button onClick={openNewClientForm}>Add Client</Button>
-      </div>
+    <div className="container mx-auto px-6 py-8 max-w-7xl">
+      <button
+        onClick={() => navigate('/')}
+        className="text-white hover:text-gray-200 mb-4 flex items-center gap-1"
+      >
+        ← Back to Time Tracker
+      </button>
 
-      <div className="mb-4">
-        <label className="flex items-center gap-2 text-sm text-gray-700">
-          <input
-            type="checkbox"
-            checked={showArchived}
-            onChange={(e) => setShowArchived(e.target.checked)}
-            className="rounded border-gray-300"
-          />
-          Show archived clients
-        </label>
+      <div className="flex justify-between items-center mb-5">
+        <h1 className="text-lg font-bold text-white">Clients</h1>
+        <div className="flex items-center gap-4">
+          <label className="flex items-center gap-2 text-base text-white">
+            <input
+              type="checkbox"
+              checked={showArchived}
+              onChange={(e) => setShowArchived(e.target.checked)}
+              className="rounded border-gray-300"
+            />
+            Show archived
+          </label>
+          <Button onClick={openNewClientForm}>Add Client</Button>
+        </div>
       </div>
 
       {clients.length === 0 ? (
-        <div className="text-center py-12 bg-gray-50 rounded-lg">
-          <p className="text-gray-600">No clients found. Create your first client to get started.</p>
+        <div className="text-center py-12 bg-white border border-gray-200 rounded-xl shadow-md">
+          <p className="text-gray-500">No clients found. Create your first client to get started.</p>
         </div>
       ) : (
-        <div className="grid gap-4">
+        <div className="grid gap-3">
           {clients.map((client) => (
             <ClientRow
               key={client.id}

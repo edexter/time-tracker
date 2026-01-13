@@ -157,38 +157,39 @@ export default function SessionsTable({ sessions, activeSession, onUpdate, total
   }
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-      <div className="p-4 bg-gray-50 border-b border-gray-200">
-        <h3 className="font-semibold text-gray-900">Time Entries</h3>
+    <div className="bg-white border border-gray-200 rounded-xl shadow-md overflow-hidden">
+      <div className="px-6 py-4 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
+        <h3 className="text-base font-semibold text-gray-900">Enter Time</h3>
       </div>
 
       {/* Table */}
-      <table className="w-full">
-        <thead className="bg-gray-50 border-b border-gray-200">
-          <tr>
-            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Clock In
-            </th>
-            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Clock Out
-            </th>
-            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Total Time
-            </th>
-            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Actions
-            </th>
-          </tr>
-        </thead>
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead className="bg-gray-50 border-b border-gray-200">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Clock In
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Clock Out
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Duration
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Actions
+              </th>
+            </tr>
+          </thead>
         <tbody className="divide-y divide-gray-200">
           {rows.map((row, idx) => {
             const isEditing = row.session && editingId === row.session.id
             const isLastRow = idx === rows.length - 1
 
             return (
-              <tr key={idx} className="hover:bg-gray-50">
+              <tr key={idx} className={`hover:bg-gray-50 ${row.type === 'active' ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''}`}>
                 {/* Clock In */}
-                <td className="px-4 py-3">
+                <td className="px-6 py-2">
                   {row.session ? (
                     isEditing ? (
                       <input
@@ -199,22 +200,22 @@ export default function SessionsTable({ sessions, activeSession, onUpdate, total
                         className="w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     ) : (
-                      <span className="text-sm text-gray-900">
+                      <span className="text-base text-gray-900">
                         {formatTime(row.session.start_time)}
                       </span>
                     )
                   ) : (
-                    <span className="text-sm text-gray-400">—</span>
+                    <span className="text-base text-gray-400">—</span>
                   )}
                 </td>
 
                 {/* Clock Out */}
-                <td className="px-4 py-3">
+                <td className="px-6 py-2">
                   {row.type === 'active' ? (
                     isEditing ? (
-                      <span className="text-sm text-gray-400">--:--</span>
+                      <span className="text-base text-gray-400">--:--</span>
                     ) : (
-                      <span className="text-sm text-gray-400">--:--</span>
+                      <span className="text-base text-gray-400">--:--</span>
                     )
                   ) : row.type === 'completed' ? (
                     isEditing ? (
@@ -226,47 +227,57 @@ export default function SessionsTable({ sessions, activeSession, onUpdate, total
                         className="w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     ) : (
-                      <span className="text-sm text-gray-900">
+                      <span className="text-base text-gray-900">
                         {formatTime(row.session.end_time)}
                       </span>
                     )
                   ) : (
-                    <span className="text-sm text-gray-400">—</span>
+                    <span className="text-base text-gray-400">—</span>
                   )}
                 </td>
 
                 {/* Total Time */}
-                <td className="px-4 py-3">
+                <td className="px-6 py-2">
                   {row.type === 'active' ? (
-                    <span className="text-sm font-medium text-blue-600">In Progress</span>
+                    <div className="flex items-center gap-2">
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                      </span>
+                      <span className="text-base font-medium text-blue-600">In Progress</span>
+                    </div>
                   ) : row.type === 'completed' ? (
-                    <span className="text-sm font-medium text-gray-900">
+                    <span className="text-base font-medium text-gray-900">
                       {formatDurationHHMM(row.session.duration_hours)}
                     </span>
                   ) : (
-                    <span className="text-sm text-gray-400">—</span>
+                    <span className="text-base text-gray-400">—</span>
                   )}
                 </td>
 
                 {/* Actions */}
-                <td className="px-4 py-3">
+                <td className="px-6 py-2">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                       {(row.type === 'completed' || row.type === 'active') && !isEditing && (
                         <>
                           <button
                             onClick={() => handleEdit(row.session)}
-                            className="text-blue-600 hover:text-blue-800 text-sm"
+                            className="text-blue-600 hover:text-blue-800 p-1 rounded hover:bg-blue-50 transition-colors"
                             title="Edit times"
                           >
-                            ✏️
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
                           </button>
                           <button
                             onClick={() => handleDelete(row.session)}
-                            className="text-red-600 hover:text-red-800 text-sm"
+                            className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-50 transition-colors"
                             title="Delete"
                           >
-                            🗑️
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
                           </button>
                         </>
                       )}
@@ -304,27 +315,28 @@ export default function SessionsTable({ sessions, activeSession, onUpdate, total
 
           {/* Total Row */}
           <tr className="bg-gray-50 font-semibold">
-            <td className="px-4 py-3 text-sm text-gray-900" colSpan="2">
+            <td className="px-6 py-2 text-base text-gray-900" colSpan="2">
               Daily Total
             </td>
-            <td className="px-4 py-3 text-sm text-gray-900">
+            <td className="px-6 py-2 text-base text-gray-900">
               {formatDurationHHMM(getTotalDuration())}
             </td>
-            <td className="px-4 py-3"></td>
+            <td className="px-6 py-2"></td>
           </tr>
 
           {/* Unallocated Row */}
-          <tr className="bg-gray-50">
-            <td className="px-4 py-3 text-sm text-gray-600" colSpan="2">
-              Unallocated
+          <tr className={`${unallocated > 0 ? 'bg-orange-50' : 'bg-gray-50'}`}>
+            <td className="px-6 py-2 text-base text-gray-600 font-medium" colSpan="2">
+              Unallocated Time
             </td>
-            <td className="px-4 py-3 text-sm text-orange-500 font-medium">
+            <td className={`px-6 py-2 text-base font-semibold ${unallocated > 0 ? 'text-orange-600' : 'text-gray-500'}`}>
               {formatDurationHHMM(unallocated || 0)}
             </td>
-            <td className="px-4 py-3"></td>
+            <td className="px-6 py-2"></td>
           </tr>
         </tbody>
       </table>
+      </div>
     </div>
   )
 }

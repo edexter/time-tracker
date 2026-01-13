@@ -4,13 +4,14 @@ import Input from '../shared/Input'
 import Select from '../shared/Select'
 import Button from '../shared/Button'
 
-export default function ProjectForm({ project = null, onSubmit, onCancel, isLoading }) {
+export default function ProjectForm({ project = null, clientId = null, onSubmit, onCancel, isLoading }) {
   const { data: clientsData } = useClients(false)
   const clients = clientsData?.clients || []
 
   const [formData, setFormData] = useState({
-    client_id: project?.client_id || '',
+    client_id: clientId || project?.client_id || '',
     name: project?.name || '',
+    short_name: project?.short_name || '',
     hourly_rate_override: project?.hourly_rate_override || '',
     hour_budget: project?.hour_budget || '',
   })
@@ -57,14 +58,16 @@ export default function ProjectForm({ project = null, onSubmit, onCancel, isLoad
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <Select
-        label="Client"
-        value={formData.client_id}
-        onChange={(e) => handleChange('client_id', e.target.value)}
-        options={clientOptions}
-        error={errors.client_id}
-        required
-      />
+      {!clientId && (
+        <Select
+          label="Client"
+          value={formData.client_id}
+          onChange={(e) => handleChange('client_id', e.target.value)}
+          options={clientOptions}
+          error={errors.client_id}
+          required
+        />
+      )}
 
       <Input
         label="Project Name"
@@ -72,6 +75,13 @@ export default function ProjectForm({ project = null, onSubmit, onCancel, isLoad
         onChange={(e) => handleChange('name', e.target.value)}
         error={errors.name}
         required
+      />
+
+      <Input
+        label="Short Name (optional)"
+        value={formData.short_name}
+        onChange={(e) => handleChange('short_name', e.target.value)}
+        maxLength={50}
       />
 
       <Input

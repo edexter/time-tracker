@@ -9,6 +9,7 @@ class Project(db.Model):
     id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     client_id = db.Column(db.String(36), db.ForeignKey('clients.id'), nullable=False)
     name = db.Column(db.String(255), nullable=False)
+    short_name = db.Column(db.String(50), nullable=True)
     hourly_rate_override = db.Column(db.Numeric(10, 2), nullable=True)
     hour_budget = db.Column(db.Numeric(10, 2), nullable=True)
     is_active = db.Column(db.Boolean, nullable=False, default=True)
@@ -35,6 +36,7 @@ class Project(db.Model):
             'client_id': self.client_id,
             'client_name': self.client.name,
             'name': self.name,
+            'short_name': self.short_name,
             'hourly_rate_override': float(self.hourly_rate_override) if self.hourly_rate_override else None,
             'effective_hourly_rate': float(effective_rate),
             'currency': self.client.currency,
@@ -52,7 +54,8 @@ class Project(db.Model):
 
     def get_hours_logged(self):
         """Calculate total hours logged for this project."""
-        total = db.session.query(db.func.sum(db.text('time_allocations.hours'))).filter(
-            db.text('time_allocations.project_id = :project_id')
-        ).params(project_id=self.id).scalar()
+        from backend.models.time_allocation import TimeAllocation
+        total = db.session.query(db.func.sum(TimeAllocation.hours)).filter(
+            TimeAllocation.project_id == self.id
+        ).scalar()
         return float(total) if total else 0.0

@@ -5,6 +5,7 @@ import ProtectedRoute from './components/auth/ProtectedRoute'
 import LoginPage from './pages/LoginPage'
 import DailyTrackerPage from './pages/DailyTrackerPage'
 import ClientsPage from './pages/ClientsPage'
+import ClientDetailPage from './pages/ClientDetailPage'
 import ProjectsPage from './pages/ProjectsPage'
 
 const queryClient = new QueryClient({
@@ -36,6 +37,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <ClientsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/clients/:id"
+              element={
+                <ProtectedRoute>
+                  <ClientDetailPage />
                 </ProtectedRoute>
               }
             />
