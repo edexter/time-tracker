@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { useSessions } from '../hooks/useSessions'
+import { useSessions, useClockIn, useClockOut } from '../hooks/useSessions'
 import { useAllocations } from '../hooks/useAllocations'
 import SessionsTable from '../components/tracker/SessionsTable'
 import DailySummary from '../components/tracker/DailySummary'
 import AllocationsList from '../components/tracker/AllocationsList'
 import AddAllocationForm from '../components/tracker/AddAllocationForm'
 import LoadingSpinner from '../components/shared/LoadingSpinner'
+import Button from '../components/shared/Button'
 import { getToday } from '../utils/formatters'
 
 export default function DailyTrackerPage() {
@@ -23,9 +24,30 @@ export default function DailyTrackerPage() {
     refetch: refetchAllocations
   } = useAllocations(currentDate)
 
+  const clockIn = useClockIn()
+  const clockOut = useClockOut()
+
   const handleUpdate = () => {
     refetchSessions()
     refetchAllocations()
+  }
+
+  const handleClockIn = async () => {
+    try {
+      await clockIn.mutateAsync()
+      handleUpdate()
+    } catch (error) {
+      alert(error.response?.data?.error || 'Failed to clock in')
+    }
+  }
+
+  const handleClockOut = async () => {
+    try {
+      await clockOut.mutateAsync()
+      handleUpdate()
+    } catch (error) {
+      alert(error.response?.data?.error || 'Failed to clock out')
+    }
   }
 
   if (sessionsLoading || allocationsLoading) {
@@ -46,8 +68,27 @@ export default function DailyTrackerPage() {
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-6xl">
-      {/* Fixed Date Header */}
-      <div className="sticky top-0 bg-white z-10 pb-4 mb-6 flex justify-end">
+      {/* Fixed Header with Clock In/Out and Date */}
+      <div className="sticky top-0 bg-white z-10 pb-4 mb-6 flex justify-between items-center">
+        <div>
+          {activeSession ? (
+            <Button
+              variant="danger"
+              onClick={handleClockOut}
+              disabled={clockOut.isPending}
+            >
+              Clock Out
+            </Button>
+          ) : (
+            <Button
+              variant="primary"
+              onClick={handleClockIn}
+              disabled={clockIn.isPending}
+            >
+              Clock In
+            </Button>
+          )}
+        </div>
         <div className="text-right">
           <p className="text-lg font-semibold text-gray-900">
             {new Date(currentDate).toLocaleDateString('en-US', {

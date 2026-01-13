@@ -1,10 +1,60 @@
 from flask import Blueprint, request, jsonify
 from datetime import datetime, date, timezone
+from sqlalchemy import and_, or_
 from backend.extensions import db
 from backend.models.work_session import WorkSession
 from backend.middleware.auth_middleware import login_required
 
 bp = Blueprint('sessions', __name__, url_prefix='/api/sessions')
+
+
+def check_overlap(start_time, end_time, session_date, exclude_session_id=None):
+    """
+    Check if a session overlaps with any existing sessions on the same date.
+    Returns True if there's an overlap, False otherwise.
+    """
+    query = WorkSession.query.filter(WorkSession.date == session_date)
+
+    if exclude_session_id:
+        query = query.filter(WorkSession.id != exclude_session_id)
+
+    # Check for overlaps:
+    # Two sessions overlap if:
+    # (start1 < end2) AND (end1 > start2)
+    # For active sessions (end_time is None), we need special handling
+
+    if end_time:
+        # Completed session - check against all sessions
+        overlap = query.filter(
+            or_(
+                # Overlaps with completed sessions
+                and_(
+                    WorkSession.end_time.isnot(None),
+                    WorkSession.start_time < end_time,
+                    WorkSession.end_time > start_time
+                ),
+                # Overlaps with active sessions
+                and_(
+                    WorkSession.end_time.is_(None),
+                    WorkSession.start_time < end_time
+                )
+            )
+        ).first()
+    else:
+        # Active session - check against all sessions
+        overlap = query.filter(
+            or_(
+                # Overlaps with completed sessions
+                and_(
+                    WorkSession.end_time.isnot(None),
+                    WorkSession.end_time > start_time
+                ),
+                # Overlaps with other active sessions
+                WorkSession.end_time.is_(None)
+            )
+        ).first()
+
+    return overlap is not None
 
 
 @bp.route('', methods=['GET'])
@@ -54,6 +104,10 @@ def clock_in():
 
     session_date = start_time.date()
 
+    # Check for overlaps
+    if check_overlap(start_time, None, session_date):
+        return jsonify({'error': 'This session overlaps with an existing session'}), 400
+
     session = WorkSession(
         date=session_date,
         start_time=start_time,
@@ -87,6 +141,10 @@ def clock_out():
     if end_time <= active_session.start_time:
         return jsonify({'error': 'End time must be after start time'}), 400
 
+    # Check for overlaps (excluding the current session being updated)
+    if check_overlap(active_session.start_time, end_time, active_session.date, active_session.id):
+        return jsonify({'error': 'This session overlaps with an existing session'}), 400
+
     active_session.end_time = end_time
     db.session.commit()
 
@@ -114,6 +172,10 @@ def create_session():
     # Validate end time is after start time
     if end_time <= start_time:
         return jsonify({'error': 'End time must be after start time'}), 400
+
+    # Check for overlaps
+    if check_overlap(start_time, end_time, session_date):
+        return jsonify({'error': 'This session overlaps with an existing session'}), 400
 
     session = WorkSession(
         date=session_date,
@@ -149,6 +211,10 @@ def update_session(session_id):
     # Validate end time is after start time
     if session.end_time and session.end_time <= session.start_time:
         return jsonify({'error': 'End time must be after start time'}), 400
+
+    # Check for overlaps (excluding the current session being updated)
+    if check_overlap(session.start_time, session.end_time, session.date, session.id):
+        return jsonify({'error': 'This session overlaps with an existing session'}), 400
 
     db.session.commit()
     return jsonify({'session': session.to_dict()}), 200
