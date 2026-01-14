@@ -14,6 +14,7 @@ export default function AddAllocationForm({ date, unallocated, onUpdate }) {
     hours: '0.25',
     notes: '',
   })
+  const [timeInput, setTimeInput] = useState('0:15')
 
   const projects = projectsData?.projects || []
 
@@ -57,7 +58,7 @@ export default function AddAllocationForm({ date, unallocated, onUpdate }) {
     }
 
     const hours = parseFloat(formData.hours)
-    if (hours <= 0) {
+    if (hours <= 0 || isNaN(hours)) {
       alert('Hours must be greater than 0')
       return
     }
@@ -76,6 +77,7 @@ export default function AddAllocationForm({ date, unallocated, onUpdate }) {
       })
 
       setFormData({ project_id: '', hours: '0.25', notes: '' })
+      setTimeInput('0:15')
       onUpdate()
     } catch (error) {
       alert(error.response?.data?.error || 'Failed to create allocation')
@@ -102,14 +104,30 @@ export default function AddAllocationForm({ date, unallocated, onUpdate }) {
   }
 
   const parseTimeInput = (timeStr) => {
-    const [h, m] = timeStr.split(':').map(Number)
+    const parts = timeStr.split(':')
+    if (parts.length !== 2) return null
+    const h = parseInt(parts[0])
+    const m = parseInt(parts[1])
+    if (isNaN(h) || isNaN(m) || m < 0 || m >= 60) return null
     return h + (m / 60)
+  }
+
+  const handleTimeInputChange = (e) => {
+    const value = e.target.value
+    setTimeInput(value)
+
+    // Parse and update hours if valid
+    const hours = parseTimeInput(value)
+    if (hours !== null && hours > 0) {
+      setFormData({ ...formData, hours: hours.toString() })
+    }
   }
 
   const adjustTime = (delta) => {
     const current = parseFloat(formData.hours)
     const newValue = Math.max(0.25, Math.min(unallocated, current + delta))
     setFormData({ ...formData, hours: newValue.toString() })
+    setTimeInput(formatTimeInput(newValue))
   }
 
   return (
@@ -138,9 +156,10 @@ export default function AddAllocationForm({ date, unallocated, onUpdate }) {
 
           <input
             type="text"
-            value={formatTimeInput(parseFloat(formData.hours))}
-            readOnly
-            className="w-20 px-3 py-2 text-sm border border-gray-300 rounded-lg bg-gray-50 text-center font-mono"
+            value={timeInput}
+            onChange={handleTimeInputChange}
+            placeholder="H:MM"
+            className="w-20 px-3 py-2 text-sm border border-gray-300 rounded-lg text-center font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <div className="flex flex-col">
             <button

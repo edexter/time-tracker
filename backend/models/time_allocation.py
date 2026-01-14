@@ -19,7 +19,6 @@ class TimeAllocation(db.Model):
 
     # Indexes and constraints
     __table_args__ = (
-        db.CheckConstraint('hours > 0 AND MOD(hours * 4, 1) = 0', name='check_hours_increment'),
         db.Index('idx_allocations_date', 'date'),
         db.Index('idx_allocations_project', 'project_id'),
     )

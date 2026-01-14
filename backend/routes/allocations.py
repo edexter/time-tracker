@@ -70,9 +70,9 @@ def create_allocation():
 
     hours = Decimal(str(data['hours']))
 
-    # Validate hours are in 0.25 increments
-    if hours <= 0 or (hours * 4) % 1 != 0:
-        return jsonify({'error': 'Hours must be positive and in 0.25 increments'}), 400
+    # Validate hours are positive
+    if hours <= 0:
+        return jsonify({'error': 'Hours must be positive'}), 400
 
     # Check if allocation would exceed clocked time
     total_allocated = get_total_allocated_for_date(allocation_date)
@@ -107,9 +107,9 @@ def update_allocation(allocation_id):
     if 'hours' in data:
         new_hours = Decimal(str(data['hours']))
 
-        # Validate hours are in 0.25 increments
-        if new_hours <= 0 or (new_hours * 4) % 1 != 0:
-            return jsonify({'error': 'Hours must be positive and in 0.25 increments'}), 400
+        # Validate hours are positive
+        if new_hours <= 0:
+            return jsonify({'error': 'Hours must be positive'}), 400
 
         # Check if new allocation would exceed clocked time
         total_allocated = get_total_allocated_for_date(allocation.date)
