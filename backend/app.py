@@ -1,5 +1,6 @@
 import os
 from flask import Flask, send_from_directory
+from flask_cors import CORS
 from backend.config import config
 from backend.extensions import db, migrate, limiter
 
@@ -11,6 +12,11 @@ def create_app(config_name=None):
 
     app = Flask(__name__, static_folder='static', static_url_path='')
     app.config.from_object(config[config_name])
+
+    # Initialize CORS
+    # Get allowed origins from environment or use defaults
+    allowed_origins = os.environ.get('CORS_ORIGINS', 'http://localhost:5173,http://localhost:5174,http://localhost:5175').split(',')
+    CORS(app, supports_credentials=True, origins=allowed_origins)
 
     # Initialize extensions
     db.init_app(app)
