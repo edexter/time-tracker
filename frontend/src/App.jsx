@@ -7,6 +7,7 @@ import DailyTrackerPage from './pages/DailyTrackerPage'
 import ClientsPage from './pages/ClientsPage'
 import ClientDetailPage from './pages/ClientDetailPage'
 import ProjectsPage from './pages/ProjectsPage'
+import ReportsPage from './pages/ReportsPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -53,6 +54,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <ProjectsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/reports"
+              element={
+                <ProtectedRoute>
+                  <ReportsPage />
                 </ProtectedRoute>
               }
             />
