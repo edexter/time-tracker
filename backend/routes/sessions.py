@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from datetime import datetime, date, timezone
+from datetime import datetime, date
 from sqlalchemy import and_, or_
 from backend.extensions import db
 from backend.models.work_session import WorkSession
@@ -96,11 +96,13 @@ def clock_in():
     if active_session:
         return jsonify({'error': 'Already clocked in. Clock out first.'}), 400
 
-    # Use provided time or current time
+    # Use provided time or current time (store as naive datetime in user's local timezone)
     if data.get('time'):
-        start_time = datetime.fromisoformat(data['time'].replace('Z', '+00:00'))
+        start_time = datetime.fromisoformat(data['time'].replace('Z', ''))
+        # Remove timezone info to store as naive
+        start_time = start_time.replace(tzinfo=None)
     else:
-        start_time = datetime.now(timezone.utc)
+        start_time = datetime.now()
 
     session_date = start_time.date()
 
@@ -131,11 +133,13 @@ def clock_out():
     if not active_session:
         return jsonify({'error': 'Not clocked in. Clock in first.'}), 400
 
-    # Use provided time or current time
+    # Use provided time or current time (store as naive datetime in user's local timezone)
     if data.get('time'):
-        end_time = datetime.fromisoformat(data['time'].replace('Z', '+00:00'))
+        end_time = datetime.fromisoformat(data['time'].replace('Z', ''))
+        # Remove timezone info to store as naive
+        end_time = end_time.replace(tzinfo=None)
     else:
-        end_time = datetime.now(timezone.utc)
+        end_time = datetime.now()
 
     # Validate end time is after start time
     if end_time <= active_session.start_time:
@@ -164,8 +168,11 @@ def create_session():
 
     try:
         session_date = datetime.strptime(data['date'], '%Y-%m-%d').date()
-        start_time = datetime.fromisoformat(data['start_time'].replace('Z', '+00:00'))
-        end_time = datetime.fromisoformat(data['end_time'].replace('Z', '+00:00'))
+        start_time = datetime.fromisoformat(data['start_time'].replace('Z', ''))
+        end_time = datetime.fromisoformat(data['end_time'].replace('Z', ''))
+        # Remove timezone info to store as naive
+        start_time = start_time.replace(tzinfo=None)
+        end_time = end_time.replace(tzinfo=None)
     except ValueError as e:
         return jsonify({'error': f'Invalid date/time format: {str(e)}'}), 400
 
@@ -198,13 +205,17 @@ def update_session(session_id):
 
     if 'start_time' in data:
         try:
-            session.start_time = datetime.fromisoformat(data['start_time'].replace('Z', '+00:00'))
+            start_time = datetime.fromisoformat(data['start_time'].replace('Z', ''))
+            # Remove timezone info to store as naive
+            session.start_time = start_time.replace(tzinfo=None)
         except ValueError:
             return jsonify({'error': 'Invalid start_time format'}), 400
 
     if 'end_time' in data:
         try:
-            session.end_time = datetime.fromisoformat(data['end_time'].replace('Z', '+00:00'))
+            end_time = datetime.fromisoformat(data['end_time'].replace('Z', ''))
+            # Remove timezone info to store as naive
+            session.end_time = end_time.replace(tzinfo=None)
         except ValueError:
             return jsonify({'error': 'Invalid end_time format'}), 400
 

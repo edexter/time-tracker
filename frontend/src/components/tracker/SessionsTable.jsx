@@ -103,26 +103,18 @@ export default function SessionsTable({ sessions, activeSession, onUpdate, total
     }
 
     try {
-      // Build ISO datetime strings using the session's date in local timezone
-      const sessionDate = new Date(session.start_time)
-      const year = sessionDate.getFullYear()
-      const month = String(sessionDate.getMonth() + 1).padStart(2, '0')
-      const day = String(sessionDate.getDate()).padStart(2, '0')
-
-      // Create datetime in local timezone, then convert to ISO
-      const [startHours, startMinutes] = startTime.split(':')
-      const newStartDate = new Date(year, sessionDate.getMonth(), sessionDate.getDate(), parseInt(startHours), parseInt(startMinutes))
+      // Build ISO datetime strings without timezone (naive local time)
+      // Extract date portion from the session's start_time ISO string
+      const dateStr = session.start_time.split('T')[0]
 
       const updateData = {
-        start_time: newStartDate.toISOString()
+        start_time: `${dateStr}T${startTime}:00`
       }
 
       // Only update end_time for completed sessions
       if (!isActive) {
         const endTime = normalizeTime(editEndTime)
-        const [endHours, endMinutes] = endTime.split(':')
-        const newEndDate = new Date(year, sessionDate.getMonth(), sessionDate.getDate(), parseInt(endHours), parseInt(endMinutes))
-        updateData.end_time = newEndDate.toISOString()
+        updateData.end_time = `${dateStr}T${endTime}:00`
       }
 
       await updateSession.mutateAsync({

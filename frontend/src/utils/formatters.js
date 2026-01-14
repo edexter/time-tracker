@@ -43,13 +43,21 @@ export function formatDate(date) {
 
 /**
  * Format a time to HH:MM
- * @param {string} isoString - ISO timestamp
+ * @param {string} isoString - ISO timestamp (stored as naive UTC, treat as local)
  * @returns {string}
  */
 export function formatTime(isoString) {
+  // Extract time portion directly from ISO string to avoid timezone conversion
+  // ISO format: "2024-01-14T08:45:00" or "2024-01-14T08:45:00.000000"
+  const timePart = isoString.split('T')[1]
+  if (timePart) {
+    const [hours, minutes] = timePart.split(':')
+    return `${hours}:${minutes}`
+  }
+  // Fallback to old behavior if format is unexpected
   const date = new Date(isoString)
-  const hours = String(date.getHours()).padStart(2, '0')
-  const minutes = String(date.getMinutes()).padStart(2, '0')
+  const hours = String(date.getUTCHours()).padStart(2, '0')
+  const minutes = String(date.getUTCMinutes()).padStart(2, '0')
   return `${hours}:${minutes}`
 }
 

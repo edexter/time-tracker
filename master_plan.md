@@ -124,10 +124,10 @@ CREATE INDEX idx_projects_active ON projects(is_active, is_archived);
 CREATE TABLE work_sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     date DATE NOT NULL,
-    start_time TIMESTAMP WITH TIME ZONE NOT NULL,
-    end_time TIMESTAMP WITH TIME ZONE NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    start_time TIMESTAMP NOT NULL,
+    end_time TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_sessions_date ON work_sessions(date);
@@ -136,6 +136,8 @@ CREATE INDEX idx_sessions_date ON work_sessions(date);
 **Notes:**
 - `end_time` is NULL when session is active (user is clocked in)
 - If a session spans midnight, automatically split into two sessions at midnight
+- Timestamps stored without timezone (naive datetimes) representing user's local time
+- No timezone conversions needed - times entered as "8:45" are stored and displayed as "8:45"
 
 ### 2.4 Time Allocations Table
 
@@ -1046,11 +1048,15 @@ databases:
 
 ## 11. Timezone Handling
 
-- All timestamps stored in UTC in database
-- Server assumes user timezone is `Europe/Zurich`
-- Convert to local time for display
-- Convert to UTC for storage
-- Date boundaries (for daily grouping) calculated in local time
+- **All timestamps stored as timezone-naive datetimes representing the user's local time**
+- No timezone conversions performed between frontend and backend
+- When user enters "8:45", it is stored as "8:45" and displayed as "8:45"
+- This ensures times remain consistent regardless of where the user is working from
+- Date boundaries (for daily grouping) based on the stored naive date values
+- Implementation:
+  - Frontend: Sends ISO datetime strings without timezone suffix (e.g., `2024-01-14T08:45:00`)
+  - Backend: Strips timezone info before storing to database
+  - Display: Extracts time portion directly from ISO string to avoid browser timezone conversion
 
 ---
 

@@ -8,10 +8,10 @@ class WorkSession(db.Model):
 
     id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     date = db.Column(db.Date, nullable=False)
-    start_time = db.Column(db.DateTime(timezone=True), nullable=False)
-    end_time = db.Column(db.DateTime(timezone=True), nullable=True)
-    created_at = db.Column(db.DateTime(timezone=True), default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+    start_time = db.Column(db.DateTime(timezone=False), nullable=False)
+    end_time = db.Column(db.DateTime(timezone=False), nullable=True)
+    created_at = db.Column(db.DateTime(timezone=False), default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime(timezone=False), default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Indexes
     __table_args__ = (
