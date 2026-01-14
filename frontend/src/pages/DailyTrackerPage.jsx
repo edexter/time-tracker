@@ -54,7 +54,17 @@ export default function DailyTrackerPage() {
 
   const handleClockIn = async () => {
     try {
-      await clockIn.mutateAsync()
+      // Send current local time as naive datetime string (no timezone)
+      const now = new Date()
+      const year = now.getFullYear()
+      const month = String(now.getMonth() + 1).padStart(2, '0')
+      const day = String(now.getDate()).padStart(2, '0')
+      const hours = String(now.getHours()).padStart(2, '0')
+      const minutes = String(now.getMinutes()).padStart(2, '0')
+      const seconds = String(now.getSeconds()).padStart(2, '0')
+      const localTime = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`
+
+      await clockIn.mutateAsync(localTime)
       handleUpdate()
     } catch (error) {
       alert(error.response?.data?.error || 'Failed to clock in')
@@ -63,7 +73,17 @@ export default function DailyTrackerPage() {
 
   const handleClockOut = async () => {
     try {
-      await clockOut.mutateAsync()
+      // Send current local time as naive datetime string (no timezone)
+      const now = new Date()
+      const year = now.getFullYear()
+      const month = String(now.getMonth() + 1).padStart(2, '0')
+      const day = String(now.getDate()).padStart(2, '0')
+      const hours = String(now.getHours()).padStart(2, '0')
+      const minutes = String(now.getMinutes()).padStart(2, '0')
+      const seconds = String(now.getSeconds()).padStart(2, '0')
+      const localTime = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`
+
+      await clockOut.mutateAsync(localTime)
       handleUpdate()
     } catch (error) {
       alert(error.response?.data?.error || 'Failed to clock out')
@@ -162,6 +182,17 @@ export default function DailyTrackerPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
                 Manage Clients/Projects
+              </span>
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => navigate('/reports')}
+            >
+              <span className="inline-flex items-center">
+                <svg className="w-4 h-4 mr-1.5 -mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+                Reports
               </span>
             </Button>
           </div>
