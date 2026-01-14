@@ -23,7 +23,7 @@ class Config:
     @staticmethod
     def validate():
         """Validate required configuration."""
-        required = ['SECRET_KEY', 'SQLALCHEMY_DATABASE_URI', 'PASSWORD_HASH']
+        required = ['SECRET_KEY', 'DATABASE_URL', 'PASSWORD_HASH']
         missing = [key for key in required if not os.environ.get(key)]
         if missing:
             raise ValueError(f"Missing required environment variables: {', '.join(missing)}")
