@@ -1,0 +1,40 @@
+services:
+  # Web service - Prebuilt Docker image from Docker Hub with SQLite
+  - type: web
+    name: time-tracker
+    runtime: image
+    image:
+      url: docker.io/dexter000/time-tracker:latest
+    plan: starter  # $7/month for always-on (free tier spins down after 15min)
+    region: oregon  # Change to your preferred region
+    healthCheckPath: /api/auth/check
+    numInstances: 1
+    disk:
+      name: time-tracker-data
+      mountPath: /data
+      sizeGB: 1  # 1GB persistent storage for SQLite database
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: SECRET_KEY
+        generateValue: true  # Render will auto-generate
+      - key: PASSWORD_HASH
+        sync: false  # Set manually in Render dashboard
+      - key: DATABASE_URL
+        value: sqlite:////data/timetracker.db
+      - key: PORT
+        value: 10000
+      - key: WORKERS
+        value: 4
+      - key: THREADS
+        value: 2
+      - key: TIMEOUT
+        value: 120
+
+# Notes:
+# 1. SQLite database stored on persistent disk at /data/timetracker.db
+# 2. Persistent disk survives deployments and restarts
+# 3. Deploy new images: ./docker-push.sh [tag], then manual deploy in Render
+# 4. Set PASSWORD_HASH manually in Render dashboard: python scripts/generate_password_hash.py
+# 5. Render provides automatic SSL certificates
+# 6. Backup: Download /data/timetracker.db via Render shell periodically
