@@ -15,20 +15,32 @@ export default function ReportsPage() {
   const [selectedYear, setSelectedYear] = useState(now.getFullYear())
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1) // 1-12
 
-  // Calculate default date range (last 30 days)
-  const today = new Date()
-  const thirtyDaysAgo = new Date(today)
-  thirtyDaysAgo.setDate(today.getDate() - 30)
-
   const formatDate = (date) => {
-    return date.toISOString().split('T')[0]
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
   }
 
-  const [startDate, setStartDate] = useState(formatDate(thirtyDaysAgo))
-  const [endDate, setEndDate] = useState(formatDate(today))
+  // Calculate current week (Monday to Sunday)
+  const getCurrentWeek = () => {
+    const today = new Date()
+    const dayOfWeek = today.getDay() // 0 = Sunday, 1 = Monday, etc.
+    const monday = new Date(today)
+    // If Sunday (0), go back 6 days; otherwise go back (dayOfWeek - 1) days
+    const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+    monday.setDate(today.getDate() - daysToMonday)
+    const sunday = new Date(monday)
+    sunday.setDate(monday.getDate() + 6)
+    return { monday, sunday }
+  }
+
+  const { monday: defaultMonday, sunday: defaultSunday } = getCurrentWeek()
+  const [startDate, setStartDate] = useState(formatDate(defaultMonday))
+  const [endDate, setEndDate] = useState(formatDate(defaultSunday))
 
   // For daily summary
-  const [selectedDate, setSelectedDate] = useState(formatDate(today))
+  const [selectedDate, setSelectedDate] = useState(formatDate(now))
 
   const [reportType, setReportType] = useState('dailySummary') // 'monthly', 'daily', or 'dailySummary'
 
@@ -250,26 +262,24 @@ export default function ReportsPage() {
               <Button
                 variant="secondary"
                 onClick={() => {
-                  const today = new Date()
-                  const lastMonth = new Date(today)
-                  lastMonth.setMonth(today.getMonth() - 1)
-                  setStartDate(formatDate(lastMonth))
-                  setEndDate(formatDate(today))
+                  const { monday, sunday } = getCurrentWeek()
+                  setStartDate(formatDate(monday))
+                  setEndDate(formatDate(sunday))
                 }}
               >
-                Last 30 Days
+                This Week
               </Button>
               <Button
                 variant="secondary"
                 onClick={() => {
                   const today = new Date()
-                  const lastWeek = new Date(today)
-                  lastWeek.setDate(today.getDate() - 7)
-                  setStartDate(formatDate(lastWeek))
+                  const lastMonth = new Date(today)
+                  lastMonth.setDate(today.getDate() - 30)
+                  setStartDate(formatDate(lastMonth))
                   setEndDate(formatDate(today))
                 }}
               >
-                Last 7 Days
+                Last 30 Days
               </Button>
             </div>
           </div>
@@ -286,7 +296,7 @@ export default function ReportsPage() {
       ) : reportType === 'monthly' ? (
         <MonthlyReportChart data={monthlyData} />
       ) : (
-        <DailyHoursChart data={dailyData} />
+        <DailyHoursChart data={dailyData} startDate={startDate} endDate={endDate} />
       )}
     </div>
   )

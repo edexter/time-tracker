@@ -1,17 +1,24 @@
-import { useState } from 'react'
-import { useClockIn, useClockOut, useDeleteSession, useUpdateSession } from '../../hooks/useSessions'
+import { useState, useRef, useEffect } from 'react'
+import { useDeleteSession, useUpdateSession } from '../../hooks/useSessions'
 import { formatTime, formatDurationHHMM } from '../../utils/formatters'
-import Button from '../shared/Button'
 
-export default function SessionsTable({ sessions, activeSession, onUpdate, totalAllocated, unallocated }) {
+export default function SessionsTable({ sessions, activeSession, activeElapsedHours = 0, onUpdate, unallocated }) {
   const [maxRows, setMaxRows] = useState(3)
-  const [editingId, setEditingId] = useState(null)
-  const [editStartTime, setEditStartTime] = useState('')
-  const [editEndTime, setEditEndTime] = useState('')
-  const clockIn = useClockIn()
-  const clockOut = useClockOut()
+  // Track which specific field is being edited: { sessionId, field: 'start' | 'end' }
+  const [editingField, setEditingField] = useState(null)
+  const [editValue, setEditValue] = useState('')
+  const [originalValue, setOriginalValue] = useState('')
+  const inputRef = useRef(null)
   const deleteSession = useDeleteSession()
   const updateSession = useUpdateSession()
+
+  // Auto-focus input when editing starts
+  useEffect(() => {
+    if (editingField && inputRef.current) {
+      inputRef.current.focus()
+      inputRef.current.select()
+    }
+  }, [editingField])
 
   // Calculate total duration including active session
   const getTotalDuration = () => {
@@ -19,25 +26,10 @@ export default function SessionsTable({ sessions, activeSession, onUpdate, total
     sessions.forEach(s => {
       if (s.duration_hours) total += s.duration_hours
     })
+    if (activeSession) {
+      total += activeElapsedHours
+    }
     return total
-  }
-
-  const handleClockIn = async (rowIndex) => {
-    try {
-      await clockIn.mutateAsync()
-      onUpdate()
-    } catch (error) {
-      alert(error.response?.data?.error || 'Failed to clock in')
-    }
-  }
-
-  const handleClockOut = async () => {
-    try {
-      await clockOut.mutateAsync()
-      onUpdate()
-    } catch (error) {
-      alert(error.response?.data?.error || 'Failed to clock out')
-    }
   }
 
   const handleDelete = async (session) => {
@@ -54,18 +46,6 @@ export default function SessionsTable({ sessions, activeSession, onUpdate, total
     }
   }
 
-  const handleEdit = (session) => {
-    setEditingId(session.id)
-    setEditStartTime(formatTime(session.start_time))
-    setEditEndTime(formatTime(session.end_time))
-  }
-
-  const handleCancelEdit = () => {
-    setEditingId(null)
-    setEditStartTime('')
-    setEditEndTime('')
-  }
-
   const normalizeTime = (timeStr) => {
     // Accept formats like "9:30" or "09:30"
     const match = timeStr.match(/^(\d{1,2}):(\d{2})$/)
@@ -76,55 +56,91 @@ export default function SessionsTable({ sessions, activeSession, onUpdate, total
     return `${hours}:${minutes}`
   }
 
-  const handleSaveEdit = async (session) => {
-    const startTime = normalizeTime(editStartTime)
+  // Start editing a specific field
+  const handleStartEdit = (session, field) => {
+    const value = field === 'start'
+      ? formatTime(session.start_time)
+      : formatTime(session.end_time)
+    setEditingField({ sessionId: session.id, field })
+    setEditValue(value)
+    setOriginalValue(value)
+  }
 
-    if (!startTime) {
-      alert('Invalid time format. Use HH:MM format (e.g., 09:30 or 9:30)')
+  // Cancel editing and revert
+  const handleCancelEdit = () => {
+    setEditingField(null)
+    setEditValue('')
+    setOriginalValue('')
+  }
+
+  // Save the edited value (called on blur or Enter)
+  const handleSaveField = async (session) => {
+    const newTime = normalizeTime(editValue)
+
+    // If no change, just close
+    if (editValue === originalValue) {
+      handleCancelEdit()
       return
     }
 
-    // For active sessions, only validate and update start time
+    if (!newTime) {
+      alert('Invalid time format. Use HH:MM (e.g., 09:30 or 9:30)')
+      // Revert to original and close
+      handleCancelEdit()
+      return
+    }
+
     const isActive = !session.end_time
+    const field = editingField.field
+    const dateStr = session.start_time.split('T')[0]
 
-    if (!isActive) {
-      const endTime = normalizeTime(editEndTime)
+    // Build update data
+    const updateData = {}
 
-      if (!endTime) {
-        alert('Invalid time format. Use HH:MM format (e.g., 09:30 or 9:30)')
-        return
+    if (field === 'start') {
+      updateData.start_time = `${dateStr}T${newTime}:00`
+
+      // For completed sessions, validate end > start
+      if (!isActive) {
+        const currentEnd = formatTime(session.end_time)
+        if (currentEnd <= newTime) {
+          alert('Start time must be before end time.')
+          handleCancelEdit()
+          return
+        }
       }
-
-      // Check that end time is after start time (no midnight spanning)
-      if (endTime <= startTime) {
-        alert('End time must be after start time. Sessions cannot span midnight.')
+    } else {
+      // Editing end time
+      updateData.end_time = `${dateStr}T${newTime}:00`
+      const currentStart = formatTime(session.start_time)
+      if (newTime <= currentStart) {
+        alert('End time must be after start time.')
+        handleCancelEdit()
         return
       }
     }
 
     try {
-      // Build ISO datetime strings without timezone (naive local time)
-      // Extract date portion from the session's start_time ISO string
-      const dateStr = session.start_time.split('T')[0]
-
-      const updateData = {
-        start_time: `${dateStr}T${startTime}:00`
-      }
-
-      // Only update end_time for completed sessions
-      if (!isActive) {
-        const endTime = normalizeTime(editEndTime)
-        updateData.end_time = `${dateStr}T${endTime}:00`
-      }
-
       await updateSession.mutateAsync({
         id: session.id,
         data: updateData
       })
-      setEditingId(null)
+      handleCancelEdit()
       onUpdate()
     } catch (error) {
       alert(error.response?.data?.error || 'Failed to update session')
+      handleCancelEdit()
+    }
+  }
+
+  // Handle keyboard events in input
+  const handleKeyDown = (e, session) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      handleSaveField(session)
+    } else if (e.key === 'Escape') {
+      e.preventDefault()
+      handleCancelEdit()
     }
   }
 
@@ -175,7 +191,8 @@ export default function SessionsTable({ sessions, activeSession, onUpdate, total
           </thead>
         <tbody className="divide-y divide-gray-200">
           {rows.map((row, idx) => {
-            const isEditing = row.session && editingId === row.session.id
+            const isEditingStart = row.session && editingField?.sessionId === row.session.id && editingField?.field === 'start'
+            const isEditingEnd = row.session && editingField?.sessionId === row.session.id && editingField?.field === 'end'
             const isLastRow = idx === rows.length - 1
 
             return (
@@ -183,16 +200,23 @@ export default function SessionsTable({ sessions, activeSession, onUpdate, total
                 {/* Clock In */}
                 <td className="px-6 py-2">
                   {row.session ? (
-                    isEditing ? (
+                    isEditingStart ? (
                       <input
+                        ref={inputRef}
                         type="text"
-                        value={editStartTime}
-                        onChange={(e) => setEditStartTime(e.target.value)}
+                        value={editValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        onBlur={() => handleSaveField(row.session)}
+                        onKeyDown={(e) => handleKeyDown(e, row.session)}
                         placeholder="HH:MM"
-                        className="w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-20 px-2 py-1 text-sm border border-blue-400 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                       />
                     ) : (
-                      <span className="text-base text-gray-900">
+                      <span
+                        onClick={() => handleStartEdit(row.session, 'start')}
+                        className="text-base text-gray-900 px-2 py-1 -mx-2 rounded cursor-text hover:bg-blue-50 hover:ring-1 hover:ring-blue-200 transition-colors"
+                        title="Click to edit"
+                      >
                         {formatTime(row.session.start_time)}
                       </span>
                     )
@@ -204,22 +228,25 @@ export default function SessionsTable({ sessions, activeSession, onUpdate, total
                 {/* Clock Out */}
                 <td className="px-6 py-2">
                   {row.type === 'active' ? (
-                    isEditing ? (
-                      <span className="text-base text-gray-400">--:--</span>
-                    ) : (
-                      <span className="text-base text-gray-400">--:--</span>
-                    )
+                    <span className="text-base text-gray-400">--:--</span>
                   ) : row.type === 'completed' ? (
-                    isEditing ? (
+                    isEditingEnd ? (
                       <input
+                        ref={inputRef}
                         type="text"
-                        value={editEndTime}
-                        onChange={(e) => setEditEndTime(e.target.value)}
+                        value={editValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        onBlur={() => handleSaveField(row.session)}
+                        onKeyDown={(e) => handleKeyDown(e, row.session)}
                         placeholder="HH:MM"
-                        className="w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-20 px-2 py-1 text-sm border border-blue-400 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                       />
                     ) : (
-                      <span className="text-base text-gray-900">
+                      <span
+                        onClick={() => handleStartEdit(row.session, 'end')}
+                        className="text-base text-gray-900 px-2 py-1 -mx-2 rounded cursor-text hover:bg-blue-50 hover:ring-1 hover:ring-blue-200 transition-colors"
+                        title="Click to edit"
+                      >
                         {formatTime(row.session.end_time)}
                       </span>
                     )
@@ -236,7 +263,9 @@ export default function SessionsTable({ sessions, activeSession, onUpdate, total
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
                         <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
                       </span>
-                      <span className="text-base font-medium text-blue-600">In Progress</span>
+                      <span className="text-base font-medium text-blue-600">
+                        {formatDurationHHMM(activeElapsedHours)}
+                      </span>
                     </div>
                   ) : row.type === 'completed' ? (
                     <span className="text-base font-medium text-gray-900">
@@ -251,43 +280,16 @@ export default function SessionsTable({ sessions, activeSession, onUpdate, total
                 <td className="px-6 py-2">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      {(row.type === 'completed' || row.type === 'active') && !isEditing && (
-                        <>
-                          <button
-                            onClick={() => handleEdit(row.session)}
-                            className="text-blue-600 hover:text-blue-800 p-1 rounded hover:bg-blue-50 transition-colors"
-                            title="Edit times"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                          </button>
-                          <button
-                            onClick={() => handleDelete(row.session)}
-                            className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-50 transition-colors"
-                            title="Delete"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
-                        </>
-                      )}
-                      {(row.type === 'completed' || row.type === 'active') && isEditing && (
-                        <>
-                          <button
-                            onClick={() => handleSaveEdit(row.session)}
-                            className="text-green-600 hover:text-green-800 text-sm font-medium"
-                          >
-                            Save
-                          </button>
-                          <button
-                            onClick={handleCancelEdit}
-                            className="text-gray-600 hover:text-gray-800 text-sm font-medium"
-                          >
-                            Cancel
-                          </button>
-                        </>
+                      {(row.type === 'completed' || row.type === 'active') && (
+                        <button
+                          onClick={() => handleDelete(row.session)}
+                          className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-50 transition-colors"
+                          title="Delete"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
                       )}
                     </div>
                     {isLastRow && rows.length >= maxRows && (
@@ -322,7 +324,7 @@ export default function SessionsTable({ sessions, activeSession, onUpdate, total
               Unallocated Time
             </td>
             <td className={`px-6 py-2 text-base font-semibold ${unallocated > 0 ? 'text-orange-600' : 'text-gray-500'}`}>
-              {formatDurationHHMM(unallocated || 0)}
+              {formatDurationHHMM(unallocated)}
             </td>
             <td className="px-6 py-2"></td>
           </tr>

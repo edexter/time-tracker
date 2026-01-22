@@ -9,10 +9,25 @@ from backend.middleware.auth_middleware import login_required
 bp = Blueprint('allocations', __name__, url_prefix='/api/allocations')
 
 
-def get_total_clocked_for_date(target_date):
-    """Calculate total hours clocked for a specific date."""
+def get_completed_hours_for_date(target_date):
+    """Calculate total hours from completed sessions for a specific date."""
     sessions = WorkSession.query.filter_by(date=target_date).all()
     return sum(s.get_duration_hours() for s in sessions)
+
+
+def get_active_session_hours(target_date, current_time=None):
+    """Get elapsed hours from any active session on the given date.
+
+    Args:
+        target_date: The date to check for active sessions
+        current_time: The client's current local time (naive datetime).
+                      If None, falls back to server's datetime.now().
+    """
+    active = WorkSession.query.filter_by(date=target_date, end_time=None).first()
+    if active:
+        now = current_time if current_time else datetime.now()
+        return (now - active.start_time).total_seconds() / 3600
+    return 0.0
 
 
 def get_total_allocated_for_date(target_date):
@@ -41,14 +56,12 @@ def get_allocations():
     ).all()
 
     total_allocated = get_total_allocated_for_date(target_date)
-    total_clocked = get_total_clocked_for_date(target_date)
-    unallocated = total_clocked - total_allocated
+    completed_hours = get_completed_hours_for_date(target_date)
 
     return jsonify({
         'allocations': [a.to_dict() for a in allocations],
         'total_allocated': round(total_allocated, 2),
-        'total_clocked': round(total_clocked, 2),
-        'unallocated': round(unallocated, 2)
+        'completed_hours': round(completed_hours, 2)
     }), 200
 
 
@@ -74,9 +87,18 @@ def create_allocation():
     if hours <= 0:
         return jsonify({'error': 'Hours must be positive'}), 400
 
-    # Check if allocation would exceed clocked time
+    # Parse client's current time for accurate active session calculation
+    current_time = None
+    if data.get('current_time'):
+        try:
+            current_time = datetime.fromisoformat(data['current_time'].replace('Z', ''))
+            current_time = current_time.replace(tzinfo=None)
+        except ValueError:
+            pass  # Fall back to server time if parsing fails
+
+    # Check if allocation would exceed clocked time (includes active session)
     total_allocated = get_total_allocated_for_date(allocation_date)
-    total_clocked = get_total_clocked_for_date(allocation_date)
+    total_clocked = get_completed_hours_for_date(allocation_date) + get_active_session_hours(allocation_date, current_time)
 
     if total_allocated + float(hours) > total_clocked:
         return jsonify({
@@ -111,9 +133,18 @@ def update_allocation(allocation_id):
         if new_hours <= 0:
             return jsonify({'error': 'Hours must be positive'}), 400
 
-        # Check if new allocation would exceed clocked time
+        # Parse client's current time for accurate active session calculation
+        current_time = None
+        if data.get('current_time'):
+            try:
+                current_time = datetime.fromisoformat(data['current_time'].replace('Z', ''))
+                current_time = current_time.replace(tzinfo=None)
+            except ValueError:
+                pass  # Fall back to server time if parsing fails
+
+        # Check if new allocation would exceed clocked time (includes active session)
         total_allocated = get_total_allocated_for_date(allocation.date)
-        total_clocked = get_total_clocked_for_date(allocation.date)
+        total_clocked = get_completed_hours_for_date(allocation.date) + get_active_session_hours(allocation.date, current_time)
 
         # Subtract old allocation and add new one
         new_total_allocated = total_allocated - float(allocation.hours) + float(new_hours)

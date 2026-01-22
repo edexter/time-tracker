@@ -79,16 +79,21 @@ def get_daily_hours():
     results = db.session.query(
         TimeAllocation.date,
         Project.name.label('project_name'),
+        Client.name.label('client_name'),
         func.sum(TimeAllocation.hours).label('total_hours')
     ).join(
         Project, TimeAllocation.project_id == Project.id
+    ).join(
+        Client, Project.client_id == Client.id
     ).filter(
         TimeAllocation.date >= start,
         TimeAllocation.date <= end
     ).group_by(
         TimeAllocation.date,
         Project.id,
-        Project.name
+        Project.name,
+        Client.id,
+        Client.name
     ).order_by(
         TimeAllocation.date
     ).all()
@@ -99,6 +104,7 @@ def get_daily_hours():
         report_data.append({
             'date': row.date.isoformat(),
             'project_name': row.project_name,
+            'client_name': row.client_name,
             'hours': float(row.total_hours)
         })
 

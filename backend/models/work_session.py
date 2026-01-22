@@ -36,7 +36,7 @@ class WorkSession(db.Model):
         }
 
     def get_duration_hours(self):
-        """Get duration in hours."""
+        """Get duration in hours. Returns 0 for active sessions."""
         if self.end_time is None:
             return 0.0
         duration_seconds = (self.end_time - self.start_time).total_seconds()

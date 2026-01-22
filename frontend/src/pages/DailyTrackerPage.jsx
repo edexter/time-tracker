@@ -4,6 +4,7 @@ import { DayPicker } from 'react-day-picker'
 import 'react-day-picker/style.css'
 import { useSessions, useClockIn, useClockOut } from '../hooks/useSessions'
 import { useAllocations } from '../hooks/useAllocations'
+import { useDailyTotals } from '../hooks/useDailyTotals'
 import SessionsTable from '../components/tracker/SessionsTable'
 import DailySummary from '../components/tracker/DailySummary'
 import AllocationsList from '../components/tracker/AllocationsList'
@@ -29,6 +30,15 @@ export default function DailyTrackerPage() {
     isLoading: allocationsLoading,
     refetch: refetchAllocations
   } = useAllocations(currentDate)
+
+  // Single source of truth for daily totals
+  const {
+    totalClocked,
+    unallocated,
+    totalAllocated,
+    activeElapsedHours,
+    activeSession
+  } = useDailyTotals(sessionsData, allocationsData)
 
   const clockIn = useClockIn()
   const clockOut = useClockOut()
@@ -99,12 +109,7 @@ export default function DailyTrackerPage() {
   }
 
   const sessions = sessionsData?.sessions || []
-  const activeSession = sessionsData?.active_session || null
-  const totalClocked = sessionsData?.total_hours || 0
-
   const allocations = allocationsData?.allocations || []
-  const totalAllocated = allocationsData?.total_allocated || 0
-  const unallocated = allocationsData?.unallocated || 0
 
   const handlePreviousDay = () => {
     const prevDate = new Date(currentDate)
@@ -271,8 +276,8 @@ export default function DailyTrackerPage() {
             <SessionsTable
               sessions={sessions}
               activeSession={activeSession}
+              activeElapsedHours={activeElapsedHours}
               onUpdate={handleUpdate}
-              totalAllocated={totalAllocated}
               unallocated={unallocated}
             />
             <AddAllocationForm

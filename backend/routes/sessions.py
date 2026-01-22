@@ -72,15 +72,15 @@ def get_sessions():
 
     sessions = WorkSession.query.filter_by(date=target_date).order_by(WorkSession.start_time).all()
 
-    # Calculate total hours
-    total_hours = sum(s.get_duration_hours() for s in sessions)
+    # Calculate completed hours (active sessions return 0 from get_duration_hours)
+    completed_hours = sum(s.get_duration_hours() for s in sessions)
 
     # Find active session
     active_session = next((s for s in sessions if s.end_time is None), None)
 
     return jsonify({
         'sessions': [s.to_dict() for s in sessions],
-        'total_hours': round(total_hours, 2),
+        'completed_hours': round(completed_hours, 2),
         'active_session': active_session.to_dict() if active_session else None
     }), 200
 
