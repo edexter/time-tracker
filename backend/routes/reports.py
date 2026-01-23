@@ -18,7 +18,7 @@ def get_monthly_summary():
     month = request.args.get('month', type=int)
 
     if not year or not month:
-        return {'error': 'Year and month parameters are required'}, 400
+        return jsonify({'error': 'Year and month parameters are required'}), 400
 
     # Query time allocations for the specified month
     results = db.session.query(
@@ -67,7 +67,7 @@ def get_daily_hours():
     end_date = request.args.get('end_date')
 
     if not start_date or not end_date:
-        return {'error': 'start_date and end_date parameters are required'}, 400
+        return jsonify({'error': 'start_date and end_date parameters are required'}), 400
 
     try:
         start = datetime.strptime(start_date, '%Y-%m-%d').date()
@@ -112,9 +112,10 @@ def get_daily_hours():
 
 
 @bp.route('/summary', methods=['GET'])
+@login_required
 def get_summary():
     """Get billing summary report - to be implemented in Phase 6."""
-    return {'message': 'Not yet implemented'}, 501
+    return jsonify({'message': 'Not yet implemented'}), 501
 
 
 @bp.route('/daily-summary', methods=['GET'])

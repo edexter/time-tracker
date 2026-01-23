@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from backend.extensions import db
 import uuid
 
@@ -14,8 +14,8 @@ class Client(db.Model):
     hour_budget = db.Column(db.Numeric(10, 2), nullable=True)
     is_active = db.Column(db.Boolean, nullable=False, default=True)
     is_archived = db.Column(db.Boolean, nullable=False, default=False)
-    created_at = db.Column(db.DateTime(timezone=True), default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     # Relationships
     projects = db.relationship('Project', back_populates='client', lazy='dynamic')

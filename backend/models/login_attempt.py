@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from backend.extensions import db
 import uuid
 
@@ -8,7 +8,7 @@ class LoginAttempt(db.Model):
 
     id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     ip_address = db.Column(db.String(45), nullable=False)
-    attempted_at = db.Column(db.DateTime(timezone=True), default=datetime.utcnow)
+    attempted_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     success = db.Column(db.Boolean, nullable=False, default=False)
 
     # Indexes

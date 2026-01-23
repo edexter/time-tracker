@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from backend.extensions import db
 import uuid
 
@@ -11,8 +11,8 @@ class TimeAllocation(db.Model):
     project_id = db.Column(db.String(36), db.ForeignKey('projects.id'), nullable=False)
     hours = db.Column(db.Numeric(5, 2), nullable=False)
     notes = db.Column(db.Text, nullable=True)
-    created_at = db.Column(db.DateTime(timezone=True), default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     # Relationships
     project = db.relationship('Project', back_populates='time_allocations')

@@ -1,9 +1,10 @@
 from flask import Blueprint, request, jsonify
-from datetime import datetime, date
+from datetime import datetime
 from sqlalchemy import and_, or_
 from backend.extensions import db
 from backend.models.work_session import WorkSession
 from backend.middleware.auth_middleware import login_required
+from backend.utils.datetime_utils import parse_datetime_naive, ensure_naive, now_naive
 
 bp = Blueprint('sessions', __name__, url_prefix='/api/sessions')
 
@@ -98,11 +99,9 @@ def clock_in():
 
     # Use provided time or current time (store as naive datetime in user's local timezone)
     if data.get('time'):
-        start_time = datetime.fromisoformat(data['time'].replace('Z', ''))
-        # Remove timezone info to store as naive
-        start_time = start_time.replace(tzinfo=None)
+        start_time = parse_datetime_naive(data['time'])
     else:
-        start_time = datetime.now()
+        start_time = now_naive()
 
     session_date = start_time.date()
 
@@ -135,14 +134,13 @@ def clock_out():
 
     # Use provided time or current time (store as naive datetime in user's local timezone)
     if data.get('time'):
-        end_time = datetime.fromisoformat(data['time'].replace('Z', ''))
-        # Remove timezone info to store as naive
-        end_time = end_time.replace(tzinfo=None)
+        end_time = parse_datetime_naive(data['time'])
     else:
-        end_time = datetime.now()
+        end_time = now_naive()
 
     # Validate end time is after start time
-    if end_time <= active_session.start_time:
+    start_time_naive = ensure_naive(active_session.start_time)
+    if end_time <= start_time_naive:
         return jsonify({'error': 'End time must be after start time'}), 400
 
     # Check for overlaps (excluding the current session being updated)
@@ -168,11 +166,8 @@ def create_session():
 
     try:
         session_date = datetime.strptime(data['date'], '%Y-%m-%d').date()
-        start_time = datetime.fromisoformat(data['start_time'].replace('Z', ''))
-        end_time = datetime.fromisoformat(data['end_time'].replace('Z', ''))
-        # Remove timezone info to store as naive
-        start_time = start_time.replace(tzinfo=None)
-        end_time = end_time.replace(tzinfo=None)
+        start_time = parse_datetime_naive(data['start_time'])
+        end_time = parse_datetime_naive(data['end_time'])
     except ValueError as e:
         return jsonify({'error': f'Invalid date/time format: {str(e)}'}), 400
 
@@ -205,17 +200,13 @@ def update_session(session_id):
 
     if 'start_time' in data:
         try:
-            start_time = datetime.fromisoformat(data['start_time'].replace('Z', ''))
-            # Remove timezone info to store as naive
-            session.start_time = start_time.replace(tzinfo=None)
+            session.start_time = parse_datetime_naive(data['start_time'])
         except ValueError:
             return jsonify({'error': 'Invalid start_time format'}), 400
 
     if 'end_time' in data:
         try:
-            end_time = datetime.fromisoformat(data['end_time'].replace('Z', ''))
-            # Remove timezone info to store as naive
-            session.end_time = end_time.replace(tzinfo=None)
+            session.end_time = parse_datetime_naive(data['end_time'])
         except ValueError:
             return jsonify({'error': 'Invalid end_time format'}), 400
 

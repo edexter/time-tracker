@@ -1,5 +1,6 @@
 from datetime import datetime
 from backend.extensions import db
+from backend.utils.datetime_utils import ensure_naive, now_naive
 import uuid
 
 
@@ -10,27 +11,26 @@ class WorkSession(db.Model):
     date = db.Column(db.Date, nullable=False)
     start_time = db.Column(db.DateTime(timezone=False), nullable=False)
     end_time = db.Column(db.DateTime(timezone=False), nullable=True)
-    created_at = db.Column(db.DateTime(timezone=False), default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime(timezone=False), default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime(timezone=False), default=now_naive)
+    updated_at = db.Column(db.DateTime(timezone=False), default=now_naive, onupdate=now_naive)
 
     # Indexes
     __table_args__ = (
         db.Index('idx_sessions_date', 'date'),
     )
 
-    def to_dict(self):
+    def to_dict(self) -> dict:
         """Convert work session to dictionary."""
-        duration = None
-        is_active = self.end_time is None
-
-        if not is_active:
-            duration = (self.end_time - self.start_time).total_seconds() / 3600
+        start = ensure_naive(self.start_time)
+        end = ensure_naive(self.end_time)
+        is_active = end is None
+        duration = None if is_active else (end - start).total_seconds() / 3600
 
         return {
             'id': self.id,
             'date': self.date.isoformat(),
-            'start_time': self.start_time.isoformat(),
-            'end_time': self.end_time.isoformat() if self.end_time else None,
+            'start_time': start.isoformat(),
+            'end_time': end.isoformat() if end else None,
             'duration_hours': round(duration, 2) if duration else None,
             'is_active': is_active
         }
