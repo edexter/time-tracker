@@ -4,33 +4,34 @@ A single-user web application for tracking consulting time across clients and pr
 
 ## Features
 
-- Track total hours worked per day via clock in/out sessions
-- Allocate worked hours to specific projects (15-minute increments)
-- Generate billing summaries by client/project
-- Monitor time budgets at client and project levels
-- Track non-billable work
+- Clock in/out to track daily work sessions
+- Allocate hours to projects with optional notes
+- Multi-currency support (CHF, EUR)
+- Budget tracking at client and project levels
+- Billing summaries and reports by date range
 
 ## Tech Stack
 
-- **Backend:** Python 3.11+, Flask, PostgreSQL
-- **Frontend:** React 18+, Tailwind CSS
+- **Backend:** Python 3.11, Flask, SQLAlchemy, PostgreSQL
+- **Frontend:** React 18, TypeScript, Tailwind CSS, TanStack Query
 - **Deployment:** Docker, Render
 
-## Getting Started
+## Local Development
 
 ### Prerequisites
 
-- Docker and Docker Compose
 - Python 3.11+
 - Node.js 18+
+- PostgreSQL (or Docker)
 
 ### Setup
 
-1. **Clone the repository**
+1. **Clone and configure**
 
 ```bash
 git clone <repository-url>
 cd time_tracking
+cp .env.example .env
 ```
 
 2. **Generate password hash**
@@ -39,44 +40,46 @@ cd time_tracking
 python scripts/generate_password_hash.py
 ```
 
-Add the generated hash to your `.env` file.
+Add the generated hash to `.env` as `PASSWORD_HASH`.
 
-3. **Start the application**
+3. **Backend setup**
 
-```bash
-docker-compose up
-```
-
-The application will be available at:
-- Frontend: http://localhost:5000
-- Backend API: http://localhost:5000/api
-- Database: localhost:5432
-
-### Development
-
-**Backend development:**
 ```bash
 cd backend
+python -m venv venv
+source venv/bin/activate
 pip install -r requirements.txt
-flask db upgrade
-flask run
 ```
 
-**Frontend development:**
+4. **Frontend setup**
+
 ```bash
 cd frontend
 npm install
-npm run dev
+```
+
+5. **Start dev servers**
+
+```bash
+# From project root, start both servers:
+# Backend: http://localhost:5000
+# Frontend: http://localhost:5173
+
+# Terminal 1 - Backend
+source backend/venv/bin/activate && FLASK_APP=backend.app flask run --host=0.0.0.0 --port=5000
+
+# Terminal 2 - Frontend
+cd frontend && npm run dev
 ```
 
 ## Environment Variables
 
-Create a `.env` file in the project root (see `.env.example`):
+Create `.env` in project root:
 
 ```
 SECRET_KEY=your-secret-key
 FLASK_ENV=development
-DATABASE_URL=postgresql://postgres:postgres@db:5432/timetracker
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/timetracker
 PASSWORD_HASH=your-bcrypt-hash
 ```
 
@@ -84,19 +87,25 @@ PASSWORD_HASH=your-bcrypt-hash
 
 ```
 time_tracking/
-├── backend/          # Flask backend
-│   ├── models/       # SQLAlchemy models
-│   ├── routes/       # API routes
-│   ├── services/     # Business logic
-│   └── middleware/   # Auth middleware
-├── frontend/         # React frontend
+├── backend/
+│   ├── models/          # SQLAlchemy models
+│   ├── routes/          # API endpoints
+│   ├── middleware/      # Auth middleware
+│   └── utils/           # Datetime utilities
+├── frontend/
 │   └── src/
-│       ├── api/      # API client
-│       ├── components/
-│       ├── pages/
-│       └── hooks/
-└── scripts/          # Utility scripts
+│       ├── api/         # API client (TypeScript)
+│       ├── components/  # React components
+│       ├── hooks/       # React Query hooks
+│       ├── pages/       # Page components
+│       └── types/       # TypeScript definitions
+├── migrations/          # Alembic migrations
+└── scripts/             # Utility scripts
 ```
+
+## Deployment
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for Docker and Render deployment instructions.
 
 ## License
 
