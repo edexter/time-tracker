@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, KeyboardEvent } from 'react'
-import { useDeleteSession, useUpdateSession } from '../../hooks/useSessions'
+import { useDeleteSession, useUpdateSession, useCreateSession } from '../../hooks/useSessions'
 import { formatTime, formatDurationHHMM } from '../../utils/formatters'
 import type { WorkSession } from '../../types'
 
@@ -9,33 +9,36 @@ export interface SessionsTableProps {
   activeElapsedHours?: number
   onUpdate: () => void
   unallocated: number
+  date: string
 }
 
-interface EditingField {
-  sessionId: string
-  field: 'start' | 'end'
-}
+type InputMode =
+  | null
+  | { mode: 'edit'; sessionId: string; field: 'start' | 'end' }
+  | { mode: 'create'; rowIndex: number; field: 'start' | 'end' }
 
 type RowType =
   | { type: 'completed'; session: WorkSession; index: number }
   | { type: 'active'; session: WorkSession }
   | { type: 'empty'; index: number }
 
-export default function SessionsTable({ sessions, activeSession, activeElapsedHours = 0, onUpdate, unallocated }: SessionsTableProps) {
+export default function SessionsTable({ sessions, activeSession, activeElapsedHours = 0, onUpdate, unallocated, date }: SessionsTableProps) {
   const [maxRows, setMaxRows] = useState(3)
-  const [editingField, setEditingField] = useState<EditingField | null>(null)
-  const [editValue, setEditValue] = useState('')
+  const [inputMode, setInputMode] = useState<InputMode>(null)
+  const [inputValue, setInputValue] = useState('')
   const [originalValue, setOriginalValue] = useState('')
+  const [pendingCreateStart, setPendingCreateStart] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
   const deleteSession = useDeleteSession()
   const updateSession = useUpdateSession()
+  const createSession = useCreateSession()
 
   useEffect(() => {
-    if (editingField && inputRef.current) {
+    if (inputMode !== null && inputRef.current) {
       inputRef.current.focus()
       inputRef.current.select()
     }
-  }, [editingField])
+  }, [inputMode])
 
   const getTotalDuration = () => {
     let total = 0
@@ -72,37 +75,44 @@ export default function SessionsTable({ sessions, activeSession, activeElapsedHo
     return `${hours}:${minutes}`
   }
 
+  const handleCancel = () => {
+    setInputMode(null)
+    setInputValue('')
+    setOriginalValue('')
+    setPendingCreateStart('')
+  }
+
   const handleStartEdit = (session: WorkSession, field: 'start' | 'end') => {
     const value = field === 'start'
       ? formatTime(session.start_time)
       : formatTime(session.end_time || '')
-    setEditingField({ sessionId: session.id, field })
-    setEditValue(value)
+    setInputMode({ mode: 'edit', sessionId: session.id, field })
+    setInputValue(value)
     setOriginalValue(value)
   }
 
-  const handleCancelEdit = () => {
-    setEditingField(null)
-    setEditValue('')
-    setOriginalValue('')
+  const handleStartCreate = (rowIndex: number) => {
+    setInputMode({ mode: 'create', rowIndex, field: 'start' })
+    setInputValue('')
+    setPendingCreateStart('')
   }
 
   const handleSaveField = async (session: WorkSession) => {
-    const newTime = normalizeTime(editValue)
+    const newTime = normalizeTime(inputValue)
 
-    if (editValue === originalValue) {
-      handleCancelEdit()
+    if (inputValue === originalValue) {
+      handleCancel()
       return
     }
 
     if (!newTime) {
       alert('Invalid time format. Use HH:MM (e.g., 09:30 or 9:30)')
-      handleCancelEdit()
+      handleCancel()
       return
     }
 
     const isActive = !session.end_time
-    const field = editingField?.field
+    const field = inputMode?.mode === 'edit' ? inputMode.field : null
     const dateStr = session.start_time.split('T')[0]
 
     const updateData: { start_time?: string; end_time?: string } = {}
@@ -114,7 +124,7 @@ export default function SessionsTable({ sessions, activeSession, activeElapsedHo
         const currentEnd = formatTime(session.end_time || '')
         if (currentEnd <= newTime) {
           alert('Start time must be before end time.')
-          handleCancelEdit()
+          handleCancel()
           return
         }
       }
@@ -123,7 +133,7 @@ export default function SessionsTable({ sessions, activeSession, activeElapsedHo
       const currentStart = formatTime(session.start_time)
       if (newTime <= currentStart) {
         alert('End time must be after start time.')
-        handleCancelEdit()
+        handleCancel()
         return
       }
     }
@@ -133,24 +143,105 @@ export default function SessionsTable({ sessions, activeSession, activeElapsedHo
         id: session.id,
         data: updateData
       })
-      handleCancelEdit()
+      handleCancel()
       onUpdate()
     } catch (error: unknown) {
       const err = error as { response?: { data?: { error?: string } } }
       alert(err.response?.data?.error || 'Failed to update session')
-      handleCancelEdit()
+      handleCancel()
     }
   }
 
-  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>, session: WorkSession) => {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      handleSaveField(session)
-    } else if (e.key === 'Escape') {
-      e.preventDefault()
-      handleCancelEdit()
+  const handleCreateAdvanceToEnd = () => {
+    const normalized = normalizeTime(inputValue)
+    if (!normalized) {
+      alert('Invalid time format. Use HH:MM (e.g., 09:30 or 9:30)')
+      return
+    }
+    if (inputMode?.mode !== 'create') return
+
+    setPendingCreateStart(normalized)
+    setInputValue('')
+    setInputMode({ ...inputMode, field: 'end' })
+  }
+
+  const handleCreateSubmit = async () => {
+    const endNorm = normalizeTime(inputValue)
+    if (!pendingCreateStart || !endNorm) {
+      alert('Invalid time format. Use HH:MM (e.g., 09:30 or 9:30)')
+      return
+    }
+    if (endNorm <= pendingCreateStart) {
+      alert('End time must be after start time.')
+      return
+    }
+    try {
+      await createSession.mutateAsync({
+        date,
+        start_time: `${date}T${pendingCreateStart}:00`,
+        end_time: `${date}T${endNorm}:00`,
+      })
+      handleCancel()
+      onUpdate()
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { error?: string } } }
+      alert(err.response?.data?.error || 'Failed to create session')
     }
   }
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      handleCancel()
+      return
+    }
+    if (e.key !== 'Enter' && e.key !== 'Tab') return
+    if (inputMode === null) return
+
+    e.preventDefault()
+    if (inputMode.mode === 'edit') {
+      const session = sessions.find(s => s.id === inputMode.sessionId) || activeSession
+      if (session) handleSaveField(session)
+    } else {
+      if (inputMode.field === 'start') {
+        handleCreateAdvanceToEnd()
+      } else {
+        handleCreateSubmit()
+      }
+    }
+  }
+
+  const handleBlur = () => {
+    if (inputMode === null) return
+
+    if (inputMode.mode === 'edit') {
+      const session = sessions.find(s => s.id === inputMode.sessionId) || activeSession
+      if (session) handleSaveField(session)
+    } else {
+      if (inputMode.field === 'start' && !inputValue.trim()) {
+        handleCancel()
+      } else if (inputMode.field === 'end') {
+        if (pendingCreateStart && inputValue.trim()) {
+          handleCreateSubmit()
+        } else if (!inputValue.trim()) {
+          handleCancel()
+        }
+      }
+    }
+  }
+
+  const renderTimeInput = () => (
+    <input
+      ref={inputRef}
+      type="text"
+      value={inputValue}
+      onChange={(e) => setInputValue(e.target.value)}
+      onBlur={handleBlur}
+      onKeyDown={handleKeyDown}
+      placeholder="HH:MM"
+      className="w-20 px-2 py-1 text-sm border border-blue-400 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+    />
+  )
 
   const rows: RowType[] = []
   const completedSessions = sessions.filter(s => !s.is_active)
@@ -195,8 +286,11 @@ export default function SessionsTable({ sessions, activeSession, activeElapsedHo
         <tbody className="divide-y divide-gray-200">
           {rows.map((row, idx) => {
             const session = row.type !== 'empty' ? row.session : null
-            const isEditingStart = session && editingField?.sessionId === session.id && editingField?.field === 'start'
-            const isEditingEnd = session && editingField?.sessionId === session.id && editingField?.field === 'end'
+            const emptyRowIndex = row.type === 'empty' ? row.index : -1
+            const isEditingStart = inputMode?.mode === 'edit' && session && inputMode.sessionId === session.id && inputMode.field === 'start'
+            const isEditingEnd = inputMode?.mode === 'edit' && session && inputMode.sessionId === session.id && inputMode.field === 'end'
+            const isCreatingStart = inputMode?.mode === 'create' && row.type === 'empty' && inputMode.rowIndex === emptyRowIndex && inputMode.field === 'start'
+            const isCreatingEnd = inputMode?.mode === 'create' && row.type === 'empty' && inputMode.rowIndex === emptyRowIndex && inputMode.field === 'end'
             const isLastRow = idx === rows.length - 1
 
             return (
@@ -204,16 +298,7 @@ export default function SessionsTable({ sessions, activeSession, activeElapsedHo
                 <td className="px-6 py-2">
                   {session ? (
                     isEditingStart ? (
-                      <input
-                        ref={inputRef}
-                        type="text"
-                        value={editValue}
-                        onChange={(e) => setEditValue(e.target.value)}
-                        onBlur={() => handleSaveField(session)}
-                        onKeyDown={(e) => handleKeyDown(e, session)}
-                        placeholder="HH:MM"
-                        className="w-20 px-2 py-1 text-sm border border-blue-400 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                      />
+                      renderTimeInput()
                     ) : (
                       <span
                         onClick={() => handleStartEdit(session, 'start')}
@@ -223,8 +308,18 @@ export default function SessionsTable({ sessions, activeSession, activeElapsedHo
                         {formatTime(session.start_time)}
                       </span>
                     )
+                  ) : isCreatingStart ? (
+                    renderTimeInput()
+                  ) : isCreatingEnd ? (
+                    <span className="text-base text-gray-900">{pendingCreateStart}</span>
                   ) : (
-                    <span className="text-base text-gray-400">—</span>
+                    <span
+                      onClick={() => handleStartCreate(emptyRowIndex)}
+                      className="text-base text-gray-400 px-2 py-1 -mx-2 rounded cursor-text hover:bg-blue-50 hover:ring-1 hover:ring-blue-200 hover:text-blue-600 transition-colors"
+                      title="Click to add session"
+                    >
+                      —
+                    </span>
                   )}
                 </td>
 
@@ -233,16 +328,7 @@ export default function SessionsTable({ sessions, activeSession, activeElapsedHo
                     <span className="text-base text-gray-400">--:--</span>
                   ) : row.type === 'completed' ? (
                     isEditingEnd ? (
-                      <input
-                        ref={inputRef}
-                        type="text"
-                        value={editValue}
-                        onChange={(e) => setEditValue(e.target.value)}
-                        onBlur={() => handleSaveField(row.session)}
-                        onKeyDown={(e) => handleKeyDown(e, row.session)}
-                        placeholder="HH:MM"
-                        className="w-20 px-2 py-1 text-sm border border-blue-400 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                      />
+                      renderTimeInput()
                     ) : (
                       <span
                         onClick={() => handleStartEdit(row.session, 'end')}
@@ -252,8 +338,18 @@ export default function SessionsTable({ sessions, activeSession, activeElapsedHo
                         {formatTime(row.session.end_time || '')}
                       </span>
                     )
-                  ) : (
+                  ) : isCreatingEnd ? (
+                    renderTimeInput()
+                  ) : isCreatingStart ? (
                     <span className="text-base text-gray-400">—</span>
+                  ) : (
+                    <span
+                      onClick={() => handleStartCreate(emptyRowIndex)}
+                      className="text-base text-gray-400 px-2 py-1 -mx-2 rounded cursor-text hover:bg-blue-50 hover:ring-1 hover:ring-blue-200 hover:text-blue-600 transition-colors"
+                      title="Click to add session"
+                    >
+                      —
+                    </span>
                   )}
                 </td>
 

@@ -270,6 +270,7 @@ export default function DailyTrackerPage() {
               activeElapsedHours={activeElapsedHours}
               onUpdate={handleUpdate}
               unallocated={unallocated}
+              date={currentDate}
             />
             <AddAllocationForm
               date={currentDate}
